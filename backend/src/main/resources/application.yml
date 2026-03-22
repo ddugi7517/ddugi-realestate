@@ -1,0 +1,72 @@
+spring:
+  profiles:
+    active: local
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ddugi_realestate
+    username: ddugi
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+---
+# 국토교통부 공공API
+public-api:
+  molit:
+    service-key: ${MOLIT_API_KEY:YOUR_API_KEY_HERE}
+    apt-trade-url: https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev
+    apt-rent-url: https://apis.data.go.kr/1613000/RTMSDataSvcAptRentDev/getRTMSDataSvcAptRentDev
+
+scraper:
+  schedule:
+    cron: "0 0 6 * * *"  # 매일 오전 6시
+  naver:
+    base-url: https://fin.land.naver.com
+
+# 텔레그램 봇 설정
+telegram:
+  bot:
+    token: ${TELEGRAM_BOT_TOKEN:}
+    chat-id: ${TELEGRAM_CHAT_ID:}
+  notification:
+    top-count: 5              # 급등/급락/고변동성 알림 개수
+    rising-threshold: 3.0     # 급등 알림 기준 등락률 (%)
+    falling-threshold: -3.0   # 급락 알림 기준 등락률 (%)
