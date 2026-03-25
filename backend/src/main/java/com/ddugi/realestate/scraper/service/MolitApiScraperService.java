@@ -19,6 +19,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -94,21 +95,25 @@ public class MolitApiScraperService {
     }
 
     private String callMolitApi(String apiUrl, String regionCode, String yearMonth) {
-        String scheme = apiUrl.startsWith("https") ? "https" : "http";
-        return molitWebClient.get()
-            .uri(uriBuilder -> uriBuilder
-                .scheme(scheme)
-                .host(extractHost(apiUrl))
-                .path(extractPath(apiUrl))
-                .queryParam("serviceKey", molitApiProperties.getServiceKey())
-                .queryParam("LAWD_CD", regionCode)
-                .queryParam("DEAL_YMD", yearMonth)
-                .queryParam("numOfRows", "1000")
-                .queryParam("pageNo", "1")
-                .build())
+        // serviceKey는 data.go.kr 인코딩 키(이미 percent-encoded)를 그대로 사용
+        // UriComponentsBuilder.build(true)로 double-encoding 방지
+        URI uri = org.springframework.web.util.UriComponentsBuilder
+            .fromUriString(apiUrl)
+            .queryParam("serviceKey", molitApiProperties.getServiceKey())
+            .queryParam("LAWD_CD", regionCode)
+            .queryParam("DEAL_YMD", yearMonth)
+            .queryParam("numOfRows", 1000)
+            .queryParam("pageNo", 1)
+            .build(true)
+            .toUri();
+        log.debug("[MOLIT] 요청 URI: {}", uri);
+        String response = molitWebClient.get()
+            .uri(uri)
             .retrieve()
             .bodyToMono(String.class)
             .block();
+        log.debug("[MOLIT] 응답 XML: {}", response);
+        return response;
     }
 
     private List<MolitTradeDto> parseTradeXml(String xml, String regionCode) throws Exception {
@@ -123,29 +128,28 @@ public class MolitApiScraperService {
             MolitTradeDto dto = new MolitTradeDto();
             dto.setRegionCode(regionCode);
 
+            int year = 0, month = 0, day = 0;
+
             for (int j = 0; j < childNodes.getLength(); j++) {
                 var node = childNodes.item(j);
                 String name = node.getNodeName();
                 String value = node.getTextContent().trim();
 
                 switch (name) {
-                    case "아파트"    -> dto.setApartName(value);
-                    case "법정동"    -> dto.setDong(value);
-                    case "층"       -> dto.setFloor(value);
-                    case "전용면적"  -> dto.setExclusiveArea(parseDouble(value));
-                    case "거래금액"  -> dto.setTradePrice(parseMoney(value));
-                    case "년"       -> {
-                        if (dto.getTradeDate() == null) dto.setTradeDate(LocalDate.of(parseInt(value), 1, 1));
-                        else dto.setTradeDate(dto.getTradeDate().withYear(parseInt(value)));
-                    }
-                    case "월"       -> {
-                        if (dto.getTradeDate() != null) dto.setTradeDate(dto.getTradeDate().withMonth(parseInt(value)));
-                    }
-                    case "일"       -> {
-                        if (dto.getTradeDate() != null) dto.setTradeDate(dto.getTradeDate().withDayOfMonth(parseInt(value)));
-                    }
-                    case "건축년도"  -> dto.setBuildYear(parseInt(value));
+                    case "aptNm"       -> dto.setApartName(value);
+                    case "umdNm"       -> dto.setDong(value);
+                    case "floor"       -> dto.setFloor(value);
+                    case "excluUseAr"  -> dto.setExclusiveArea(parseDouble(value));
+                    case "dealAmount"  -> dto.setTradePrice(parseMoney(value));
+                    case "dealYear"    -> year  = parseInt(value);
+                    case "dealMonth"   -> month = parseInt(value);
+                    case "dealDay"     -> day   = parseInt(value);
+                    case "buildYear"   -> dto.setBuildYear(parseInt(value));
                 }
+            }
+
+            if (year > 0 && month > 0 && day > 0) {
+                dto.setTradeDate(LocalDate.of(year, month, day));
             }
 
             if (dto.getApartName() != null && dto.getTradePrice() != null) {
@@ -167,29 +171,28 @@ public class MolitApiScraperService {
             MolitTradeDto dto = new MolitTradeDto();
             dto.setRegionCode(regionCode);
 
+            int year = 0, month = 0, day = 0;
+
             for (int j = 0; j < childNodes.getLength(); j++) {
                 var node = childNodes.item(j);
                 String name = node.getNodeName();
                 String value = node.getTextContent().trim();
 
                 switch (name) {
-                    case "아파트"    -> dto.setApartName(value);
-                    case "법정동"    -> dto.setDong(value);
-                    case "층"       -> dto.setFloor(value);
-                    case "전용면적"  -> dto.setExclusiveArea(parseDouble(value));
-                    case "보증금액"  -> dto.setDeposit(parseMoney(value));
-                    case "월세금액"  -> dto.setMonthlyRent(parseMoney(value));
-                    case "년"       -> {
-                        if (dto.getTradeDate() == null) dto.setTradeDate(LocalDate.of(parseInt(value), 1, 1));
-                        else dto.setTradeDate(dto.getTradeDate().withYear(parseInt(value)));
-                    }
-                    case "월"       -> {
-                        if (dto.getTradeDate() != null) dto.setTradeDate(dto.getTradeDate().withMonth(parseInt(value)));
-                    }
-                    case "일"       -> {
-                        if (dto.getTradeDate() != null) dto.setTradeDate(dto.getTradeDate().withDayOfMonth(parseInt(value)));
-                    }
+                    case "aptNm"       -> dto.setApartName(value);
+                    case "umdNm"       -> dto.setDong(value);
+                    case "floor"       -> dto.setFloor(value);
+                    case "excluUseAr"  -> dto.setExclusiveArea(parseDouble(value));
+                    case "deposit"     -> dto.setDeposit(parseMoney(value));
+                    case "monthlyRent" -> dto.setMonthlyRent(parseMoney(value));
+                    case "dealYear"    -> year  = parseInt(value);
+                    case "dealMonth"   -> month = parseInt(value);
+                    case "dealDay"     -> day   = parseInt(value);
                 }
+            }
+
+            if (year > 0 && month > 0 && day > 0) {
+                dto.setTradeDate(LocalDate.of(year, month, day));
             }
 
             if (dto.getApartName() != null && dto.getDeposit() != null) {
@@ -265,15 +268,6 @@ public class MolitApiScraperService {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
         return builder.parse(new InputSource(new StringReader(xml)));
-    }
-
-    private String extractHost(String url) {
-        return url.replace("http://", "").replace("https://", "").split("/")[0];
-    }
-
-    private String extractPath(String url) {
-        int idx = url.indexOf("/", url.indexOf("//") + 2);
-        return idx >= 0 ? url.substring(idx) : "/";
     }
 
     private Double parseDouble(String value) {

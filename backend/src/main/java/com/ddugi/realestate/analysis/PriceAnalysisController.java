@@ -87,14 +87,14 @@ public class PriceAnalysisController {
         List<PriceAnalysisResult> all = analysisResultRepository
             .findByRegionCodeAndBaseYearMonthAndTradeTypeOrderByChangeRateDesc(regionCode, target, type);
 
-        List<AnalysisItem> topRising     = analysisResultRepository.findTopRising(target, type, 5)
+        List<AnalysisItem> topRising     = analysisResultRepository.findTopRisingByRegion(regionCode, target, type, 5)
             .stream().map(AnalysisItem::from).toList();
-        List<AnalysisItem> topFalling    = analysisResultRepository.findTopFalling(target, type, 5)
+        List<AnalysisItem> topFalling    = analysisResultRepository.findTopFallingByRegion(regionCode, target, type, 5)
             .stream().map(AnalysisItem::from).toList();
-        List<AnalysisItem> highVolatility = analysisResultRepository.findHighVolatility(target, type, 5)
+        List<AnalysisItem> highVolatility = analysisResultRepository.findHighVolatilityByRegion(regionCode, target, type, 5)
             .stream().map(AnalysisItem::from).toList();
         List<AnalysisItem> recommended   = analysisResultRepository
-            .findByBaseYearMonthAndRecommendedTrueOrderByChangeRateDesc(target)
+            .findByRegionCodeAndBaseYearMonthAndRecommendedTrueOrderByChangeRateDesc(regionCode, target)
             .stream().map(AnalysisItem::from).toList();
 
         long rising  = all.stream().filter(r -> r.getChangeRate() != null && r.getChangeRate().compareTo(BigDecimal.ZERO) > 0).count();

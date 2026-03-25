@@ -81,4 +81,8 @@ public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long
         @Param("tradeType") PriceHistory.TradeType tradeType,
         @Param("fromDate") LocalDate fromDate
     );
+
+    // property 테이블 구축용: 고유 아파트 목록 추출
+    @Query(value = "SELECT apart_name, region_code, dong, COUNT(*) as trade_count FROM price_history WHERE trade_type = 'TRADE' GROUP BY apart_name, region_code, dong ORDER BY apart_name", nativeQuery = true)
+    List<Object[]> findDistinctApartments();
 }

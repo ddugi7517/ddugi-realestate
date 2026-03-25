@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { analysisApi } from '@/lib/api';
@@ -8,7 +8,7 @@ import { PropertyCard } from '@/components/PropertyCard';
 import { StatCard } from '@/components/StatCard';
 import { REGION_MAP } from '@/types';
 import type { AnalysisItem } from '@/types';
-import { MapPin, TrendingUp, TrendingDown, Star, Calendar } from 'lucide-react';
+import { MapPin, TrendingUp, TrendingDown, Star, Calendar, Ruler } from 'lucide-react';
 import clsx from 'clsx';
 
 type TabKey = 'rising' | 'falling' | 'recommended';
@@ -19,24 +19,54 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: 'recommended', label: '추천' },
 ];
 
-function getCurrentYearMonth(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  return `${y}${m}`;
-}
+const PYEONG_OPTIONS = [
+  { label: '전체', min: 0, max: Infinity },
+  { label: '10평대', min: 10, max: 19 },
+  { label: '20평대', min: 20, max: 29 },
+  { label: '30평대', min: 30, max: 39 },
+  { label: '40평대', min: 40, max: 49 },
+  { label: '50평 이상', min: 50, max: Infinity },
+];
 
 const PIE_COLORS = ['#10b981', '#ef4444', '#9ca3af'];
 
+function getAvailableMonths(): { value: string; label: string }[] {
+  const months = [];
+  const start = new Date(2025, 0); // 2025-01
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth());
+
+  for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    months.push({ value: `${y}${m}`, label: `${y}년 ${m}월` });
+  }
+  return months.reverse(); // 최신순
+}
+
+function getCurrentYearMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export default function AnalysisPage() {
-  const [regionCode, setRegionCode] = useState('11650'); // 강남구 기본
+  const [regionCode, setRegionCode] = useState('11650');
   const [activeTab, setActiveTab] = useState<TabKey>('rising');
-  const yearMonth = getCurrentYearMonth();
+  const [yearMonth, setYearMonth] = useState(getCurrentYearMonth);
+  const [pyeongIdx, setPyeongIdx] = useState(0);
+
+  const months = useMemo(() => getAvailableMonths(), []);
 
   const { data: summary, isLoading, error } = useQuery({
     queryKey: ['regionSummary', regionCode, yearMonth],
     queryFn: () => analysisApi.getRegionSummary(regionCode, yearMonth),
   });
+
+  const filterByPyeong = (items: AnalysisItem[]) => {
+    const { min, max } = PYEONG_OPTIONS[pyeongIdx];
+    if (min === 0 && max === Infinity) return items;
+    return items.filter(item => item.exclusiveAreaPyeong >= min && item.exclusiveAreaPyeong <= max);
+  };
 
   const pieData = summary
     ? [
@@ -46,10 +76,16 @@ export default function AnalysisPage() {
       ]
     : [];
 
-  const tabItems: Record<TabKey, AnalysisItem[]> = {
+  const allTabItems: Record<TabKey, AnalysisItem[]> = {
     rising: summary?.topRising ?? [],
     falling: summary?.topFalling ?? [],
     recommended: summary?.recommended ?? [],
+  };
+
+  const tabItems: Record<TabKey, AnalysisItem[]> = {
+    rising: filterByPyeong(allTabItems.rising),
+    falling: filterByPyeong(allTabItems.falling),
+    recommended: filterByPyeong(allTabItems.recommended),
   };
 
   return (
@@ -59,21 +95,58 @@ export default function AnalysisPage() {
           <h1 className="text-2xl font-bold text-gray-900">지역별 분석</h1>
           <p className="text-sm text-gray-500 mt-1">구별 아파트 시세 현황</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500 bg-white border border-gray-100 rounded-lg px-3 py-2">
-          <Calendar size={14} />
-          <span>{yearMonth.slice(0, 4)}년 {yearMonth.slice(4)}월 기준</span>
-        </div>
       </div>
 
-      {/* 지역 선택 */}
+      {/* 필터 영역 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-        <div className="flex items-center gap-3">
-          <MapPin size={16} className="text-blue-500" />
-          <span className="text-sm font-medium text-gray-700">지역 선택</span>
-          <RegionSelector value={regionCode} onChange={setRegionCode} />
-          <span className="text-sm text-gray-500">
-            {REGION_MAP[regionCode] ?? regionCode} 분석 결과
-          </span>
+        <div className="flex flex-wrap items-center gap-4">
+          {/* 지역 선택 */}
+          <div className="flex items-center gap-2">
+            <MapPin size={15} className="text-blue-500 shrink-0" />
+            <span className="text-sm font-medium text-gray-600 whitespace-nowrap">지역</span>
+            <RegionSelector value={regionCode} onChange={setRegionCode} />
+          </div>
+
+          <div className="h-5 w-px bg-gray-200" />
+
+          {/* 월 선택 */}
+          <div className="flex items-center gap-2">
+            <Calendar size={15} className="text-blue-500 shrink-0" />
+            <span className="text-sm font-medium text-gray-600 whitespace-nowrap">기준월</span>
+            <select
+              value={yearMonth}
+              onChange={e => setYearMonth(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+            >
+              {months.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="h-5 w-px bg-gray-200" />
+
+          {/* 평형 선택 */}
+          <div className="flex items-center gap-2">
+            <Ruler size={15} className="text-blue-500 shrink-0" />
+            <span className="text-sm font-medium text-gray-600 whitespace-nowrap">평형</span>
+            <div className="flex gap-1">
+              {PYEONG_OPTIONS.map((opt, i) => (
+                <button
+                  key={opt.label}
+                  onClick={() => setPyeongIdx(i)}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                    pyeongIdx === i
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -125,11 +198,7 @@ export default function AnalysisPage() {
                       ))}
                     </Pie>
                     <Tooltip formatter={(value: number) => [`${value}개`, '']} />
-                    <Legend
-                      formatter={(value: string) => (
-                        <span className="text-xs text-gray-600">{value}</span>
-                      )}
-                    />
+                    <Legend formatter={(value: string) => <span className="text-xs text-gray-600">{value}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -149,7 +218,7 @@ export default function AnalysisPage() {
                   <div>
                     <p className="text-xs text-gray-500">거래 유형</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {{TRADE: '매매', JEONSE: '전세', MONTHLY: '월세'}[summary.tradeType] ?? summary.tradeType}
+                      {{ TRADE: '매매', JEONSE: '전세', MONTHLY: '월세' }[summary.tradeType] ?? summary.tradeType}
                     </p>
                   </div>
                   <div>
@@ -181,24 +250,29 @@ export default function AnalysisPage() {
 
           {/* 탭 */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <div className="flex gap-1 mb-5 bg-gray-100 rounded-lg p-1 w-fit">
-              {tabs.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={clsx(
-                    'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-                    activeTab === tab.key
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  )}
-                >
-                  {tab.label}
-                  <span className="ml-1.5 text-xs text-gray-400">
-                    ({tabItems[tab.key].length})
-                  </span>
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={clsx(
+                      'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
+                      activeTab === tab.key
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    )}
+                  >
+                    {tab.label}
+                    <span className="ml-1.5 text-xs text-gray-400">({tabItems[tab.key].length})</span>
+                  </button>
+                ))}
+              </div>
+              {pyeongIdx > 0 && (
+                <span className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1">
+                  {PYEONG_OPTIONS[pyeongIdx].label} 필터 적용 중
+                </span>
+              )}
             </div>
 
             {tabItems[activeTab].length === 0 ? (

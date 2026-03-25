@@ -1,16 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MapPin, Star, TrendingUp, Bell, Home } from 'lucide-react';
+import { Home, Smartphone } from 'lucide-react';
 import clsx from 'clsx';
 
 const navItems = [
-  { href: '/ddugiMain1', label: '메인', icon: Home },
-  { href: '/', label: '대시보드', icon: LayoutDashboard },
-  { href: '/analysis', label: '지역분석', icon: MapPin },
-  { href: '/recommended', label: '추천매물', icon: Star },
-  { href: '/volatile', label: '고변동성', icon: TrendingUp },
-  { href: '/notification', label: '알림설정', icon: Bell },
+  { href: '/ddugiMain1', label: '부동산분석', icon: Home },
+  { href: '/mobile', label: '모바일', icon: Smartphone },
 ];
 
 export function Sidebar() {
@@ -20,9 +16,9 @@ export function Sidebar() {
     <aside className="w-64 min-h-screen bg-gray-900 text-white flex flex-col">
       <div className="px-6 py-6 border-b border-gray-700">
         <h1 className="text-lg font-bold text-white leading-tight">
-          부동산 분석
+          뚜기 세상
         </h1>
-        <p className="text-xs text-gray-400 mt-1">Real Estate Dashboard</p>
+        <p className="text-xs text-gray-400 mt-1">ddugi's  World</p>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => {

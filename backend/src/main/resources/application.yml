@@ -2,6 +2,10 @@ spring:
   profiles:
     active: local
 
+logging:
+  file:
+    path: logs
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -32,6 +36,23 @@ spring:
 spring:
   config:
     activate:
+      on-profile: docker
+
+  datasource:
+    url: jdbc:postgresql://ddugi-postgres:5432/ddugi_realestate
+    username: ddugi
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: ddugi-redis
+      port: 6379
+
+---
+spring:
+  config:
+    activate:
       on-profile: test
 
   datasource:
@@ -52,8 +73,8 @@ spring:
 public-api:
   molit:
     service-key: ${MOLIT_API_KEY:YOUR_API_KEY_HERE}
-    apt-trade-url: https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev
-    apt-rent-url: https://apis.data.go.kr/1613000/RTMSDataSvcAptRentDev/getRTMSDataSvcAptRentDev
+    apt-trade-url: https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade
+    apt-rent-url: https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent
 
 scraper:
   schedule:

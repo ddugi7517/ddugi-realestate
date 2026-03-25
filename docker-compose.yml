@@ -30,12 +30,14 @@ services:
       dockerfile: Dockerfile
     container_name: ddugi-backend
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: local
+      SPRING_PROFILES_ACTIVE: docker
       MOLIT_API_KEY: ${MOLIT_API_KEY}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+    volumes:
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
